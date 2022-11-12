@@ -166,10 +166,6 @@
         "named": true
       },
       {
-        "type": "if_let_expression",
-        "named": true
-      },
-      {
         "type": "index_expression",
         "named": true
       },
@@ -243,10 +239,6 @@
       },
       {
         "type": "while_expression",
-        "named": true
-      },
-      {
-        "type": "while_let_expression",
         "named": true
       },
       {
@@ -644,7 +636,7 @@
     }
   },
   {
-    "type": "attr_item",
+    "type": "attribute",
     "named": true,
     "fields": {
       "arguments": {
@@ -708,11 +700,7 @@
       "required": true,
       "types": [
         {
-          "type": "attr_item",
-          "named": true
-        },
-        {
-          "type": "meta_item",
+          "type": "attribute",
           "named": true
         }
       ]
@@ -1028,10 +1016,6 @@
             "named": true
           },
           {
-            "type": "if_let_expression",
-            "named": true
-          },
-          {
             "type": "index_expression",
             "named": true
           },
@@ -1101,10 +1085,6 @@
           },
           {
             "type": "while_expression",
-            "named": true
-          },
-          {
-            "type": "while_let_expression",
             "named": true
           },
           {
@@ -1447,10 +1427,6 @@
         },
         {
           "type": "if_expression",
-          "named": true
-        },
-        {
-          "type": "if_let_expression",
           "named": true
         }
       ]
@@ -2295,31 +2271,13 @@
           {
             "type": "_expression",
             "named": true
-          }
-        ]
-      },
-      "consequence": {
-        "multiple": false,
-        "required": true,
-        "types": [
+          },
           {
-            "type": "block",
+            "type": "let_chain",
             "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "if_let_expression",
-    "named": true,
-    "fields": {
-      "alternative": {
-        "multiple": false,
-        "required": false,
-        "types": [
+          },
           {
-            "type": "else_clause",
+            "type": "let_condition",
             "named": true
           }
         ]
@@ -2330,26 +2288,6 @@
         "types": [
           {
             "type": "block",
-            "named": true
-          }
-        ]
-      },
-      "pattern": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "_pattern",
-            "named": true
-          }
-        ]
-      },
-      "value": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "_expression",
             "named": true
           }
         ]
@@ -2444,20 +2382,71 @@
       "required": true,
       "types": [
         {
-          "type": "attr_item",
-          "named": true
-        },
-        {
-          "type": "meta_item",
+          "type": "attribute",
           "named": true
         }
       ]
     }
   },
   {
+    "type": "let_chain",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "_expression",
+          "named": true
+        },
+        {
+          "type": "let_condition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "let_condition",
+    "named": true,
+    "fields": {
+      "pattern": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "_pattern",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "_expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "let_declaration",
     "named": true,
     "fields": {
+      "alternative": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
       "pattern": {
         "multiple": false,
         "required": true,
@@ -2726,6 +2715,14 @@
           {
             "type": "_expression",
             "named": true
+          },
+          {
+            "type": "let_chain",
+            "named": true
+          },
+          {
+            "type": "let_condition",
+            "named": true
           }
         ]
       }
@@ -2736,81 +2733,6 @@
       "types": [
         {
           "type": "_pattern",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "meta_arguments",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "_literal",
-          "named": true
-        },
-        {
-          "type": "meta_item",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "meta_item",
-    "named": true,
-    "fields": {
-      "arguments": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "meta_arguments",
-            "named": true
-          }
-        ]
-      },
-      "value": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "_expression",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "crate",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "metavariable",
-          "named": true
-        },
-        {
-          "type": "scoped_identifier",
-          "named": true
-        },
-        {
-          "type": "self",
-          "named": true
-        },
-        {
-          "type": "super",
           "named": true
         }
       ]
@@ -4710,51 +4632,13 @@
           {
             "type": "_expression",
             "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "loop_label",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "while_let_expression",
-    "named": true,
-    "fields": {
-      "body": {
-        "multiple": false,
-        "required": true,
-        "types": [
+          },
           {
-            "type": "block",
+            "type": "let_chain",
             "named": true
-          }
-        ]
-      },
-      "pattern": {
-        "multiple": false,
-        "required": true,
-        "types": [
+          },
           {
-            "type": "_pattern",
-            "named": true
-          }
-        ]
-      },
-      "value": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "_expression",
+            "type": "let_condition",
             "named": true
           }
         ]

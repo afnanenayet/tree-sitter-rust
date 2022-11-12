@@ -36,54 +36,6 @@ const numeric_types = [
 
 const primitive_types = numeric_types.concat(['bool', 'str', 'char'])
 
-const built_in_attributes = [
-  'cfg',
-  'cfg_attr',
-  'test',
-  'ignore',
-  'should_panic',
-  'derive',
-  'automatically_derived',
-  'macro_export',
-  'macro_use',
-  'proc_macro',
-  'proc_macro_derive',
-  'proc_macro_attribute',
-  'allow',
-  'warn',
-  'deny',
-  'forbid',
-  'deprecated',
-  'must_use',
-  'link',
-  'link_name',
-  'no_link',
-  'repr',
-  'crate_type',
-  'no_main',
-  'export_name',
-  'link_section',
-  'no_mangle',
-  'used',
-  'crate_name',
-  'inline',
-  'cold',
-  'no_builtins',
-  'target_feature',
-  'track_caller',
-  'doc',
-  'no_std',
-  'no_implicit_prelude',
-  'path',
-  'recursion_limit',
-  'type_length_limit',
-  'panic_handler',
-  'global_allocator',
-  'windows_subsystem',
-  'feature',
-  'non_exhaustive'
-]
-
 module.exports = grammar({
   name: 'rust',
 
@@ -259,7 +211,7 @@ module.exports = grammar({
     attribute_item: $ => seq(
       '#',
       '[',
-      $._attr,
+      $.attribute,
       ']'
     ),
 
@@ -267,51 +219,16 @@ module.exports = grammar({
       '#',
       '!',
       '[',
-      $._attr,
+      $.attribute,
       ']'
     ),
 
-    _attr: $ => choice(
-      alias($.built_in_attr, $.meta_item),
-      alias($.custom_attr, $.attr_item),
-    ),
-
-    custom_attr: $ => seq(
+    attribute: $ => seq(
       $._path,
       optional(choice(
         seq('=', field('value', $._expression)),
         field('arguments', alias($.delim_token_tree, $.token_tree))
       ))
-    ),
-
-    built_in_attr: $ => seq(
-      $._built_in_attr_path,
-      optional(choice(
-        seq('=', field('value', $._expression)),
-        field('arguments', $.meta_arguments)
-      ))
-    ),
-
-    _built_in_attr_path: $ => choice(
-      ...built_in_attributes.map(name => alias(name, $.identifier))
-    ),
-
-    meta_item: $ => seq(
-      $._path,
-      optional(choice(
-        seq('=', field('value', $._expression)),
-        field('arguments', $.meta_arguments)
-      ))
-    ),
-
-    meta_arguments: $ => seq(
-      '(',
-      sepBy(',', choice(
-        $.meta_item,
-        $._literal
-      )),
-      optional(','),
-      ')'
     ),
 
     mod_item: $ => seq(
@@ -633,6 +550,10 @@ module.exports = grammar({
         '=',
         field('value', $._expression)
       )),
+      optional(seq(
+        'else',
+        field('alternative', $.block)
+      )),
       ';'
     ),
 
@@ -706,7 +627,6 @@ module.exports = grammar({
       field('pattern', choice(
         $._pattern,
         $.self,
-        $._reserved_identifier,
       )),
       ':',
       field('type', $._type)
@@ -954,10 +874,8 @@ module.exports = grammar({
       $.async_block,
       $.block,
       $.if_expression,
-      $.if_let_expression,
       $.match_expression,
       $.while_expression,
-      $.while_let_expression,
       $.loop_expression,
       $.for_expression,
       $.const_block
@@ -1174,29 +1092,39 @@ module.exports = grammar({
       $._expression
     ),
 
-    if_expression: $ => seq(
+    if_expression: $ => prec.right(seq(
       'if',
-      field('condition', $._expression),
+      field('condition', $._condition),
       field('consequence', $.block),
       optional(field("alternative", $.else_clause))
-    ),
+    )),
 
-    if_let_expression: $ => seq(
-      'if',
+    let_condition: $ => seq(
       'let',
       field('pattern', $._pattern),
       '=',
-      field('value', $._expression),
-      field('consequence', $.block),
-      optional(field('alternative', $.else_clause))
+      field('value', prec.left(PREC.and, $._expression))
+    ),
+
+    _let_chain: $ => prec.left(PREC.and, choice(
+      seq($._let_chain, '&&', $.let_condition),
+      seq($._let_chain, '&&', $._expression),
+      seq($.let_condition, '&&', $._expression),
+      seq($.let_condition, '&&', $.let_condition),
+      seq($._expression, '&&', $.let_condition),
+    )),
+
+    _condition: $ => choice(
+      $._expression,
+      $.let_condition,
+      alias($._let_chain, $.let_chain),
     ),
 
     else_clause: $ => seq(
       'else',
       choice(
         $.block,
-        $.if_expression,
-        $.if_let_expression
+        $.if_expression
       )
     ),
 
@@ -1235,23 +1163,13 @@ module.exports = grammar({
 
     match_pattern: $ => seq(
       $._pattern,
-      optional(seq('if', field('condition', $._expression)))
+      optional(seq('if', field('condition', $._condition)))
     ),
 
     while_expression: $ => seq(
       optional(seq($.loop_label, ':')),
       'while',
-      field('condition', $._expression),
-      field('body', $.block)
-    ),
-
-    while_let_expression: $ => seq(
-      optional(seq($.loop_label, ':')),
-      'while',
-      'let',
-      field('pattern', $._pattern),
-      '=',
-      field('value', $._expression),
+      field('condition', $._condition),
       field('body', $.block)
     ),
 
@@ -1347,6 +1265,7 @@ module.exports = grammar({
       $.tuple_pattern,
       $.tuple_struct_pattern,
       $.struct_pattern,
+      $._reserved_identifier,
       $.ref_pattern,
       $.slice_pattern,
       $.captured_pattern,
