@@ -12,10 +12,11 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
+// https://doc.rust-lang.org/reference/expressions.html#expression-precedence
 const PREC = {
-  range: 15,
-  call: 14,
-  field: 13,
+  call: 15,
+  field: 14,
+  try: 13,
   unary: 12,
   cast: 11,
   multiplicative: 10,
@@ -27,6 +28,7 @@ const PREC = {
   comparative: 4,
   and: 3,
   or: 2,
+  range: 1,
   assign: 0,
   closure: -1,
 };
@@ -62,7 +64,11 @@ const primitive_types = numeric_types.concat(['bool', 'str', 'char']);
 module.exports = grammar({
   name: 'rust',
 
-  extras: $ => [/\s/, $.line_comment, $.block_comment],
+  extras: $ => [
+    /\s/,
+    $.line_comment,
+    $.block_comment,
+  ],
 
   externals: $ => [
     $._string_content,
@@ -100,6 +106,7 @@ module.exports = grammar({
     [$.parameters, $._pattern],
     [$.parameters, $.tuple_struct_pattern],
     [$.type_parameters, $.for_lifetimes],
+    [$.array_expression],
   ],
 
   word: $ => $.identifier,
@@ -416,6 +423,7 @@ module.exports = grammar({
       field('type_parameters', optional($.type_parameters)),
       '=',
       field('type', $._type),
+      optional($.where_clause),
       ';',
     ),
 
@@ -451,11 +459,11 @@ module.exports = grammar({
       $.extern_modifier,
     )),
 
-    where_clause: $ => seq(
+    where_clause: $ => prec.right(seq(
       'where',
       sepBy1(',', $.where_predicate),
       optional(','),
-    ),
+    )),
 
     where_predicate: $ => seq(
       field('left', choice(
@@ -478,6 +486,7 @@ module.exports = grammar({
       'impl',
       field('type_parameters', optional($.type_parameters)),
       optional(seq(
+        optional('!'),
         field('trait', choice(
           $._type_identifier,
           $.scoped_type_identifier,
@@ -901,6 +910,7 @@ module.exports = grammar({
     _expression_ending_with_block: $ => choice(
       $.unsafe_block,
       $.async_block,
+      $.try_block,
       $.block,
       $.if_expression,
       $.match_expression,
@@ -979,10 +989,10 @@ module.exports = grammar({
       $._expression,
     )),
 
-    try_expression: $ => seq(
+    try_expression: $ => prec(PREC.try, seq(
       $._expression,
       '?',
-    ),
+    )),
 
     reference_expression: $ => prec(PREC.unary, seq(
       '&',
@@ -1062,7 +1072,7 @@ module.exports = grammar({
           field('length', $._expression),
         ),
         seq(
-          sepBy(',', $._expression),
+          sepBy(',', seq(repeat($.attribute_item), $._expression)),
           optional(','),
         ),
       ),
@@ -1198,20 +1208,20 @@ module.exports = grammar({
     ),
 
     while_expression: $ => seq(
-      optional(seq($.loop_label, ':')),
+      optional(seq($.label, ':')),
       'while',
       field('condition', $._condition),
       field('body', $.block),
     ),
 
     loop_expression: $ => seq(
-      optional(seq($.loop_label, ':')),
+      optional(seq($.label, ':')),
       'loop',
       field('body', $.block),
     ),
 
     for_expression: $ => seq(
-      optional(seq($.loop_label, ':')),
+      optional(seq($.label, ':')),
       'for',
       field('pattern', $._pattern),
       'in',
@@ -1246,11 +1256,11 @@ module.exports = grammar({
       '|',
     ),
 
-    loop_label: $ => seq('\'', $.identifier),
+    label: $ => seq('\'', $.identifier),
 
-    break_expression: $ => prec.left(seq('break', optional($.loop_label), optional($._expression))),
+    break_expression: $ => prec.left(seq('break', optional($.label), optional($._expression))),
 
-    continue_expression: $ => prec.left(seq('continue', optional($.loop_label))),
+    continue_expression: $ => prec.left(seq('continue', optional($.label))),
 
     index_expression: $ => prec(PREC.call, seq($._expression, '[', $._expression, ']')),
 
@@ -1280,7 +1290,13 @@ module.exports = grammar({
       $.block,
     ),
 
+    try_block: $ => seq(
+      'try',
+      $.block,
+    ),
+
     block: $ => seq(
+      optional(seq($.label, ':')),
       '{',
       repeat($._statement),
       optional($._expression),
@@ -1436,7 +1452,7 @@ module.exports = grammar({
     )),
 
     string_literal: $ => seq(
-      alias(/b?"/, '"'),
+      alias(/[bc]?"/, '"'),
       repeat(choice(
         $.escape_sequence,
         $._string_content,

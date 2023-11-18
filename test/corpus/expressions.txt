@@ -85,6 +85,7 @@ Try expressions
 ================================================================================
 
 a.unwrap()?;
+&a?;
 
 --------------------------------------------------------------------------------
 
@@ -95,7 +96,11 @@ a.unwrap()?;
         (field_expression
           (identifier)
           (field_identifier))
-        (arguments)))))
+        (arguments))))
+  (expression_statement
+    (reference_expression
+      (try_expression
+        (identifier)))))
 
 ================================================================================
 Binary operator expressions
@@ -353,6 +358,12 @@ Array expressions
 [1, 2, 3];
 ["a", "b", "c"];
 [0; 128];
+[
+    #[cfg(foo)]
+    "foo",
+    #[cfg(bar)]
+    "bar",
+];
 
 --------------------------------------------------------------------------------
 
@@ -372,7 +383,19 @@ Array expressions
   (expression_statement
     (array_expression
       (integer_literal)
-      length: (integer_literal))))
+      length: (integer_literal)))
+  (expression_statement
+    (array_expression
+      (attribute_item
+        (attribute
+          (identifier)
+          arguments: (token_tree (identifier))))
+      (string_literal)
+      (attribute_item
+        (attribute
+          (identifier)
+          arguments: (token_tree (identifier))))
+      (string_literal))))
 
 ================================================================================
 Tuple expressions
@@ -814,17 +837,17 @@ Loop expressions
 (source_file
   (expression_statement
     (loop_expression
-      (loop_label
+      (label
         (identifier))
       (block
         (expression_statement
           (loop_expression
-            (loop_label
+            (label
               (identifier))
             (block
               (expression_statement
                 (break_expression
-                  (loop_label
+                  (label
                     (identifier))))
               (expression_statement
                 (break_expression
@@ -876,7 +899,7 @@ for i in 0..256 {
               (identifier)))))))
   (expression_statement
     (for_expression
-      (loop_label
+      (label
         (identifier))
       (identifier)
       (range_expression
@@ -885,7 +908,7 @@ for i in 0..256 {
       (block
         (expression_statement
           (for_expression
-            (loop_label
+            (label
               (identifier))
             (identifier)
             (range_expression
@@ -902,7 +925,7 @@ for i in 0..256 {
                   (block
                     (expression_statement
                       (continue_expression
-                        (loop_label
+                        (label
                           (identifier)))))))
               (expression_statement
                 (if_expression
@@ -914,7 +937,7 @@ for i in 0..256 {
                   (block
                     (expression_statement
                       (continue_expression
-                        (loop_label
+                        (label
                           (identifier))))))))))))))
 
 ================================================================================
