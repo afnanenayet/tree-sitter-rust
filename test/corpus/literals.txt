@@ -88,29 +88,42 @@ b"foo\nbar";
   (expression_statement
     (string_literal))
   (expression_statement
-    (string_literal))
-  (expression_statement
-    (string_literal))
+    (string_literal
+      (string_content)))
   (expression_statement
     (string_literal
-      (escape_sequence)))
+      (string_content)))
   (expression_statement
     (string_literal
-      (escape_sequence)))
+      (string_content)
+      (escape_sequence)
+      (string_content)))
+  (expression_statement
+    (string_literal
+      (string_content)
+      (escape_sequence)
+      (string_content)))
   (expression_statement
     (string_literal
       (escape_sequence)
-      (escape_sequence)))
-  (expression_statement
-    (string_literal))
-  (expression_statement
-    (string_literal
-      (escape_sequence)
+      (string_content)
       (escape_sequence)))
   (expression_statement
     (string_literal
+      (string_content)))
+  (expression_statement
+    (string_literal
+      (string_content)
       (escape_sequence)
-      (escape_sequence))))
+      (escape_sequence)
+      (string_content)))
+  (expression_statement
+    (string_literal
+      (string_content)
+      (escape_sequence)
+      (string_content)
+      (escape_sequence)
+      (string_content))))
 
 ================================================================================
 Raw string literals
@@ -125,15 +138,20 @@ r######"foo ##### bar"######;
 
 (source_file
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal)))
+    (raw_string_literal
+      (string_content))))
 
 ================================================================================
 Raw byte string literals
@@ -146,9 +164,11 @@ br##"abc"##;
 
 (source_file
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal)))
+    (raw_string_literal
+      (string_content))))
 
 ================================================================================
 Raw C string literals
@@ -161,9 +181,11 @@ cr##"abc"##;
 
 (source_file
   (expression_statement
-    (raw_string_literal))
+    (raw_string_literal
+      (string_content)))
   (expression_statement
-    (raw_string_literal)))
+    (raw_string_literal
+      (string_content))))
 
 ================================================================================
 Character literals

@@ -1,14 +1,11 @@
 /**
  * @file Rust grammar for tree-sitter
  * @author Maxim Sokolov <maxim0xff@gmail.com>
- * @author Max Brunsfeld
+ * @author Max Brunsfeld <maxbrunsfeld@gmail.com>
  * @author Amaan Qureshi <amaanq12@gmail.com>
  * @license MIT
  */
 
-/* eslint-disable arrow-parens */
-/* eslint-disable camelcase */
-/* eslint-disable-next-line spaced-comment */
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
@@ -33,7 +30,7 @@ const PREC = {
   closure: -1,
 };
 
-const numeric_types = [
+const numericTypes = [
   'u8',
   'i8',
   'u16',
@@ -50,16 +47,15 @@ const numeric_types = [
   'f64',
 ];
 
-const TOKEN_TREE_NON_SPECIAL_TOKENS = [
-  '/', '_', '\\', '-',
-  '=', '->', ',', ';',
-  ':', '::', '!', '?',
-  '.', '@', '*', '&',
-  '#', '%', '^', '+',
-  '<', '>', '|', '~',
+// https://doc.rust-lang.org/reference/tokens.html#punctuation
+const TOKEN_TREE_NON_SPECIAL_PUNCTUATION = [
+  '+', '-', '*', '/', '%', '^', '!', '&', '|', '&&', '||', '<<',
+  '>>', '+=', '-=', '*=', '/=', '%=', '^=', '&=', '|=', '<<=',
+  '>>=', '=', '==', '!=', '>', '<', '>=', '<=', '@', '_', '.',
+  '..', '...', '..=', ',', ';', ':', '::', '->', '=>', '#', '?',
 ];
 
-const primitive_types = numeric_types.concat(['bool', 'str', 'char']);
+const primitiveTypes = numericTypes.concat(['bool', 'str', 'char']);
 
 module.exports = grammar({
   name: 'rust',
@@ -71,12 +67,15 @@ module.exports = grammar({
   ],
 
   externals: $ => [
-    $._string_content,
-    $.raw_string_literal,
+    $.string_content,
+    $._raw_string_literal_start,
+    $.raw_string_literal_content,
+    $._raw_string_literal_end,
     $.float_literal,
-    $._outer_block_doc_comment,
-    $._inner_block_doc_comment,
-    '*/',
+    $._outer_block_doc_comment_marker,
+    $._inner_block_doc_comment_marker,
+    $._block_comment_content,
+    $._line_doc_content,
     $._error_sentinel,
   ],
 
@@ -110,6 +109,8 @@ module.exports = grammar({
     [$.parameters, $.tuple_struct_pattern],
     [$.type_parameters, $.for_lifetimes],
     [$.array_expression],
+    [$.visibility_modifier],
+    [$.visibility_modifier, $.scoped_identifier, $.scoped_type_identifier],
   ],
 
   word: $ => $.identifier,
@@ -235,8 +236,8 @@ module.exports = grammar({
     // with $).
     _non_special_token: $ => choice(
       $._literal, $.identifier, $.mutable_specifier, $.self, $.super, $.crate,
-      alias(choice(...primitive_types), $.primitive_type),
-      prec.right(repeat1(choice(...TOKEN_TREE_NON_SPECIAL_TOKENS))),
+      alias(choice(...primitiveTypes), $.primitive_type),
+      prec.right(repeat1(choice(...TOKEN_TREE_NON_SPECIAL_PUNCTUATION))),
       '\'',
       'as', 'async', 'await', 'break', 'const', 'continue', 'default', 'enum', 'fn', 'for', 'if', 'impl',
       'let', 'loop', 'match', 'mod', 'pub', 'return', 'static', 'struct', 'trait', 'type',
@@ -480,7 +481,7 @@ module.exports = grammar({
         $.tuple_type,
         $.array_type,
         $.higher_ranked_trait_bound,
-        alias(choice(...primitive_types), $.primitive_type),
+        alias(choice(...primitiveTypes), $.primitive_type),
       )),
       field('bounds', $.trait_bounds),
     ),
@@ -528,7 +529,6 @@ module.exports = grammar({
         $._type,
         $.lifetime,
         $.higher_ranked_trait_bound,
-        $.removed_trait_bound,
       )),
     ),
 
@@ -545,13 +545,16 @@ module.exports = grammar({
 
     type_parameters: $ => prec(1, seq(
       '<',
-      sepBy1(',', choice(
-        $.lifetime,
-        $.metavariable,
-        $._type_identifier,
-        $.constrained_type_parameter,
-        $.optional_type_parameter,
-        $.const_parameter,
+      sepBy1(',', seq(
+        repeat($.attribute_item),
+        choice(
+          $.lifetime,
+          $.metavariable,
+          $._type_identifier,
+          $.constrained_type_parameter,
+          $.optional_type_parameter,
+          $.const_parameter,
+        ),
       )),
       optional(','),
       '>',
@@ -660,7 +663,14 @@ module.exports = grammar({
       $.self,
     ),
 
-    variadic_parameter: _ => '...',
+    variadic_parameter: $ => seq(
+      optional($.mutable_specifier),
+      optional(seq(
+        field('pattern', $._pattern),
+        ':',
+      )),
+      '...',
+    ),
 
     parameter: $ => seq(
       optional($.mutable_specifier),
@@ -677,23 +687,22 @@ module.exports = grammar({
       optional($.string_literal),
     ),
 
-    visibility_modifier: $ => prec.right(
-      choice(
-        $.crate,
-        seq(
-          'pub',
-          optional(seq(
-            '(',
-            choice(
-              $.self,
-              $.super,
-              $.crate,
-              seq('in', $._path),
-            ),
-            ')',
-          )),
-        ),
-      )),
+    visibility_modifier: $ => choice(
+      $.crate,
+      seq(
+        'pub',
+        optional(seq(
+          '(',
+          choice(
+            $.self,
+            $.super,
+            $.crate,
+            seq('in', $._path),
+          ),
+          ')',
+        )),
+      ),
+    ),
 
     // Section - Types
 
@@ -710,10 +719,11 @@ module.exports = grammar({
       $.function_type,
       $._type_identifier,
       $.macro_invocation,
-      $.empty_type,
+      $.never_type,
       $.dynamic_type,
       $.bounded_type,
-      alias(choice(...primitive_types), $.primitive_type),
+      $.removed_trait_bound,
+      alias(choice(...primitiveTypes), $.primitive_type),
     ),
 
     bracketed_type: $ => seq(
@@ -731,7 +741,7 @@ module.exports = grammar({
       field('alias', $._type),
     ),
 
-    lifetime: $ => seq('\'', $.identifier),
+    lifetime: $ => prec(1, seq('\'', $.identifier)),
 
     array_type: $ => seq(
       '[',
@@ -814,12 +824,15 @@ module.exports = grammar({
 
     type_arguments: $ => seq(
       token(prec(1, '<')),
-      sepBy1(',', choice(
-        $._type,
-        $.type_binding,
-        $.lifetime,
-        $._literal,
-        $.block,
+      sepBy1(',', seq(
+        choice(
+          $._type,
+          $.type_binding,
+          $.lifetime,
+          $._literal,
+          $.block,
+        ),
+        optional($.trait_bounds),
       )),
       optional(','),
       '>',
@@ -845,7 +858,7 @@ module.exports = grammar({
       field('type', $._type),
     ),
 
-    empty_type: _ => '!',
+    never_type: _ => '!',
 
     abstract_type: $ => seq(
       'impl',
@@ -853,14 +866,17 @@ module.exports = grammar({
       field('trait', choice(
         $._type_identifier,
         $.scoped_type_identifier,
+        $.removed_trait_bound,
         $.generic_type,
         $.function_type,
+        $.tuple_type,
       )),
     ),
 
     dynamic_type: $ => seq(
       'dyn',
       field('trait', choice(
+        $.higher_ranked_trait_bound,
         $._type_identifier,
         $.scoped_type_identifier,
         $.generic_type,
@@ -885,7 +901,7 @@ module.exports = grammar({
       $.yield_expression,
       $._literal,
       prec.left($.identifier),
-      alias(choice(...primitive_types), $.identifier),
+      alias(choice(...primitiveTypes), $.identifier),
       prec.left($._reserved_identifier),
       $.self,
       $.scoped_identifier,
@@ -1127,7 +1143,7 @@ module.exports = grammar({
 
     field_initializer: $ => seq(
       repeat($.attribute_item),
-      field('name', $._field_identifier),
+      field('field', choice($._field_identifier, $.integer_literal)),
       ':',
       field('value', $._expression),
     ),
@@ -1189,7 +1205,7 @@ module.exports = grammar({
     ),
 
     match_arm: $ => prec.right(seq(
-      repeat($.attribute_item),
+      repeat(choice($.attribute_item, $.inner_attribute_item)),
       field('pattern', $.match_pattern),
       '=>',
       choice(
@@ -1199,7 +1215,7 @@ module.exports = grammar({
     )),
 
     last_match_arm: $ => seq(
-      repeat($.attribute_item),
+      repeat(choice($.attribute_item, $.inner_attribute_item)),
       field('pattern', $.match_pattern),
       '=>',
       field('value', $._expression),
@@ -1207,7 +1223,7 @@ module.exports = grammar({
     ),
 
     match_pattern: $ => seq(
-      choice($._pattern, alias($.closure_expression, $.closure_pattern)),
+      $._pattern,
       optional(seq('if', field('condition', $._condition))),
     ),
 
@@ -1311,7 +1327,7 @@ module.exports = grammar({
 
     _pattern: $ => choice(
       $._literal_pattern,
-      alias(choice(...primitive_types), $.identifier),
+      alias(choice(...primitiveTypes), $.identifier),
       $.identifier,
       $.scoped_identifier,
       $.tuple_pattern,
@@ -1349,6 +1365,7 @@ module.exports = grammar({
       field('type', choice(
         $.identifier,
         $.scoped_identifier,
+        alias($.generic_type_with_turbofish, $.generic_type),
       )),
       '(',
       sepBy(',', $._pattern),
@@ -1394,7 +1411,7 @@ module.exports = grammar({
       ),
       choice(
         seq(
-          choice('...', '..='),
+          choice('...', '..=', '..'),
           choice(
             $._literal_pattern,
             $._path,
@@ -1421,10 +1438,9 @@ module.exports = grammar({
       $._pattern,
     ),
 
-    or_pattern: $ => prec.left(-2, seq(
-      $._pattern,
-      '|',
-      $._pattern,
+    or_pattern: $ => prec.left(-2, choice(
+      seq($._pattern, '|', $._pattern),
+      seq('|', $._pattern),
     )),
 
     // Section - Literals
@@ -1457,16 +1473,22 @@ module.exports = grammar({
         /0b[01_]+/,
         /0o[0-7_]+/,
       ),
-      optional(choice(...numeric_types)),
+      optional(choice(...numericTypes)),
     )),
 
     string_literal: $ => seq(
       alias(/[bc]?"/, '"'),
       repeat(choice(
         $.escape_sequence,
-        $._string_content,
+        $.string_content,
       )),
       token.immediate('"'),
+    ),
+
+    raw_string_literal: $ => seq(
+      $._raw_string_literal_start,
+      alias($.raw_string_literal_content, $.string_content),
+      $._raw_string_literal_end,
     ),
 
     char_literal: _ => token(seq(
@@ -1512,35 +1534,45 @@ module.exports = grammar({
         // A tricky edge case where what looks like a doc comment is not
         seq(token.immediate(prec(2, /\/\//)), /.*/),
         // A regular doc comment
-        seq(field('doc', alias($._line_doc_comment, $.doc_comment)), /.*/),
+        seq($._line_doc_comment_marker, field('doc', alias($._line_doc_content, $.doc_comment))),
         token.immediate(prec(1, /.*/)),
       ),
     ),
 
-    _line_doc_comment: $ => choice(
+    _line_doc_comment_marker: $ => choice(
       // An outer line doc comment applies to the element that it is outside of
-      field('outer', alias($._outer_line_doc_comment, $.outer_doc_comment)),
+      field('outer', alias($._outer_line_doc_comment_marker, $.outer_doc_comment_marker)),
       // An inner line doc comment applies to the element it is inside of
-      field('inner', alias($._inner_line_doc_comment, $.inner_doc_comment)),
+      field('inner', alias($._inner_line_doc_comment_marker, $.inner_doc_comment_marker)),
     ),
 
-    _inner_line_doc_comment: _ => token.immediate(prec(2, '!')),
-    _outer_line_doc_comment: _ => token.immediate(prec(2, /\/[^\/\r\n]?/)),
+    _inner_line_doc_comment_marker: _ => token.immediate(prec(2, '!')),
+    _outer_line_doc_comment_marker: _ => token.immediate(prec(2, '/')),
 
     block_comment: $ => seq(
       '/*',
-      optional(field('doc', alias($._block_doc_comment, $.doc_comment))),
+      optional(
+        choice(
+          // Documentation block comments: /** docs */ or /*! docs */
+          seq(
+            $._block_doc_comment_marker,
+            optional(field('doc', alias($._block_comment_content, $.doc_comment))),
+          ),
+          // Non-doc block comments
+          $._block_comment_content,
+        ),
+      ),
       '*/',
     ),
 
-    _block_doc_comment: $ => choice(
-      field('inner', alias($._inner_block_doc_comment, $.inner_doc_comment)),
-      field('outer', alias($._outer_block_doc_comment, $.outer_doc_comment)),
+    _block_doc_comment_marker: $ => choice(
+      field('outer', alias($._outer_block_doc_comment_marker, $.outer_doc_comment_marker)),
+      field('inner', alias($._inner_block_doc_comment_marker, $.inner_doc_comment_marker)),
     ),
 
     _path: $ => choice(
       $.self,
-      alias(choice(...primitive_types), $.identifier),
+      alias(choice(...primitiveTypes), $.identifier),
       $.metavariable,
       $.super,
       $.crate,
