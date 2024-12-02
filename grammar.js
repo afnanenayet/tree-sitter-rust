@@ -239,9 +239,9 @@ module.exports = grammar({
       alias(choice(...primitiveTypes), $.primitive_type),
       prec.right(repeat1(choice(...TOKEN_TREE_NON_SPECIAL_PUNCTUATION))),
       '\'',
-      'as', 'async', 'await', 'break', 'const', 'continue', 'default', 'enum', 'fn', 'for', 'if', 'impl',
-      'let', 'loop', 'match', 'mod', 'pub', 'return', 'static', 'struct', 'trait', 'type',
-      'union', 'unsafe', 'use', 'where', 'while',
+      'as', 'async', 'await', 'break', 'const', 'continue', 'default', 'enum', 'fn', 'for', 'gen',
+      'if', 'impl', 'let', 'loop', 'match', 'mod', 'pub', 'return', 'static', 'struct', 'trait',
+      'type', 'union', 'unsafe', 'use', 'where', 'while',
     ),
 
     // Section - Declarations
@@ -931,6 +931,7 @@ module.exports = grammar({
     _expression_ending_with_block: $ => choice(
       $.unsafe_block,
       $.async_block,
+      $.gen_block,
       $.try_block,
       $.block,
       $.if_expression,
@@ -1017,7 +1018,10 @@ module.exports = grammar({
 
     reference_expression: $ => prec(PREC.unary, seq(
       '&',
-      optional($.mutable_specifier),
+      choice(
+        seq('raw', choice('const', $.mutable_specifier)),
+        optional($.mutable_specifier),
+      ),
       field('value', $._expression),
     )),
 
@@ -1311,6 +1315,12 @@ module.exports = grammar({
       $.block,
     ),
 
+    gen_block: $ => seq(
+      'gen',
+      optional('move'),
+      $.block,
+    ),
+
     try_block: $ => seq(
       'try',
       $.block,
@@ -1589,6 +1599,7 @@ module.exports = grammar({
     _reserved_identifier: $ => alias(choice(
       'default',
       'union',
+      'gen',
     ), $.identifier),
 
     _type_identifier: $ => alias($.identifier, $.type_identifier),
@@ -1608,8 +1619,7 @@ module.exports = grammar({
  * @param {RuleOrLiteral} sep - The separator to use.
  * @param {RuleOrLiteral} rule
  *
- * @return {SeqRule}
- *
+ * @returns {SeqRule}
  */
 function sepBy1(sep, rule) {
   return seq(rule, repeat(seq(sep, rule)));
@@ -1622,8 +1632,7 @@ function sepBy1(sep, rule) {
  * @param {RuleOrLiteral} sep - The separator to use.
  * @param {RuleOrLiteral} rule
  *
- * @return {ChoiceRule}
- *
+ * @returns {ChoiceRule}
  */
 function sepBy(sep, rule) {
   return optional(sepBy1(sep, rule));
