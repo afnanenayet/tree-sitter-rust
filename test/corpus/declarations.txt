@@ -211,8 +211,9 @@ fn foo(bar: impl for<'a> Baz<Quux<'a>>) {}
         pattern: (identifier)
         type: (abstract_type
           (type_parameters
-            (lifetime
-              (identifier)))
+            (lifetime_parameter
+              name: (lifetime
+                (identifier))))
           trait: (generic_type
             type: (type_identifier)
             type_arguments: (type_arguments
@@ -263,6 +264,89 @@ fn triples(a: impl B) -> impl Iterator<Item=(usize)> {
             (type_identifier)
             (tuple_type
               (primitive_type))))))
+    (block)))
+
+================================================================================
+Impl with lifetimes first
+================================================================================
+
+fn foo<'a>(x: impl 'a + Clone) {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    (identifier)
+    (type_parameters
+      (lifetime_parameter
+        (lifetime
+          (identifier))))
+    (parameters
+      (parameter
+        (identifier)
+        (abstract_type
+          (bounded_type
+            (lifetime
+              (identifier))
+            (type_identifier)))))
+      (block)))
+
+================================================================================
+Functions with precise capture syntax
+================================================================================
+
+fn capture<T>(&self) -> impl Iterator<Item = usize> + use<'_, T> {
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    (identifier)
+    (type_parameters
+      (type_parameter
+      (type_identifier)))
+    (parameters
+      (self_parameter
+        (self)))
+    (bounded_type
+      (abstract_type
+        (generic_type
+          (type_identifier)
+          (type_arguments
+            (type_binding
+              (type_identifier)
+              (primitive_type)))))
+        (use_bounds
+          (lifetime
+            (identifier))
+          (type_identifier)))
+    (block)))
+
+================================================================================
+Functions with empty precise capture syntax
+================================================================================
+
+fn capture(&self) -> impl Iterator<Item = usize> + use<> {
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    (identifier)
+    (parameters
+      (self_parameter
+        (self)))
+    (bounded_type
+      (abstract_type
+        (generic_type
+          (type_identifier)
+          (type_arguments
+            (type_binding
+              (type_identifier)
+              (primitive_type)))))
+        (use_bounds))
     (block)))
 
 ================================================================================
@@ -362,6 +446,7 @@ use sayings::english::{self, greetings as en_greetings, farewells as en_farewell
 use three::{ dot::{one, four} };
 use my::{ some::* };
 use my::{*};
+use ::*;
 
 --------------------------------------------------------------------------------
 
@@ -440,7 +525,9 @@ use my::{*};
     argument: (scoped_use_list
       path: (identifier)
       list: (use_list
-        (use_wildcard)))))
+        (use_wildcard))))
+  (use_declaration
+    argument: (use_wildcard)))
 
 ================================================================================
 Variable bindings
@@ -715,21 +802,25 @@ struct E<#[attr] T> {}
   (struct_item
     name: (type_identifier)
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     body: (field_declaration_list))
   (struct_item
     name: (type_identifier)
     type_parameters: (type_parameters
-      (lifetime
-        (identifier))
-      (lifetime
-        (identifier)))
+      (lifetime_parameter
+        name: (lifetime
+          (identifier)))
+      (lifetime_parameter
+        name: (lifetime
+          (identifier))))
     body: (field_declaration_list))
   (struct_item
     name: (type_identifier)
     type_parameters: (type_parameters
-      (lifetime
-        (identifier)))
+      (lifetime_parameter
+        name: (lifetime
+          (identifier))))
     body: (field_declaration_list))
   (struct_item
     name: (type_identifier)
@@ -744,7 +835,8 @@ struct E<#[attr] T> {}
       (attribute_item
         (attribute
           (identifier)))
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     body: (field_declaration_list)))
 
 ================================================================================
@@ -775,7 +867,8 @@ pub enum Node<T: Item> {
     (visibility_modifier)
     (type_identifier)
     (type_parameters
-      (type_identifier))
+      (type_parameter
+        (type_identifier)))
     (enum_variant_list
       (enum_variant
         (identifier))
@@ -787,7 +880,7 @@ pub enum Node<T: Item> {
     (visibility_modifier)
     (type_identifier)
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (type_identifier))))
@@ -858,8 +951,8 @@ pub fn uninit_array<const LEN: usize>() -> [Self; LEN] {}
     (visibility_modifier)
     name: (identifier)
     type_parameters: (type_parameters
-      (constrained_type_parameter
-        left: (type_identifier)
+      (type_parameter
+        name: (type_identifier)
         bounds: (trait_bounds
           (generic_type
             type: (type_identifier)
@@ -1055,7 +1148,8 @@ type LazyResolve = impl (FnOnce() -> Capture) + Send + Sync + UnwindSafe;
   (type_item
     (type_identifier)
     (type_parameters
-      (type_identifier))
+      (type_parameter
+        (type_identifier)))
     (generic_type
       (type_identifier)
       (type_arguments
@@ -1074,6 +1168,36 @@ type LazyResolve = impl (FnOnce() -> Capture) + Send + Sync + UnwindSafe;
           (type_identifier))
         (type_identifier))
       (type_identifier))))
+
+================================================================================
+Type alias where clauses
+================================================================================
+
+type Foo<T> where T: Copy = Box<T>;
+type Assoc3 where = () where;
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_item
+    (type_identifier)
+    (type_parameters
+      (type_parameter
+        (type_identifier)))
+    (where_clause
+      (where_predicate
+        (type_identifier)
+        (trait_bounds
+          (type_identifier))))
+    (generic_type
+      (type_identifier)
+      (type_arguments
+        (type_identifier))))
+  (type_item
+    (type_identifier)
+    (where_clause)
+    (unit_type)
+    (where_clause)))
 
 ================================================================================
 Empty statements
@@ -1496,8 +1620,9 @@ impl ConvertTo<i64> for i32 {
 (source_file
   (impl_item
     type_parameters: (type_parameters
-      (lifetime
-        (identifier)))
+      (lifetime_parameter
+        name: (lifetime
+          (identifier))))
     trait: (scoped_type_identifier
       path: (identifier)
       name: (type_identifier))
@@ -1568,7 +1693,7 @@ impl<K: Debug + Ord> Display for OccupiedError<K>;
 (source_file
   (impl_item
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (type_identifier)
@@ -1580,7 +1705,7 @@ impl<K: Debug + Ord> Display for OccupiedError<K>;
         (type_identifier))))
   (impl_item
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (type_identifier)
@@ -1672,7 +1797,7 @@ trait Add<RHS=Self> {
   (trait_item
     (type_identifier)
     (type_parameters
-      (optional_type_parameter
+      (type_parameter
         (type_identifier)
         (type_identifier)))
     (declaration_list
@@ -1705,7 +1830,7 @@ fn univariant(this: &impl ?Sized, that: &(impl LayoutCalculator + ?Sized)) {}
   (trait_item
     (type_identifier)
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (removed_trait_bound
@@ -1742,7 +1867,7 @@ impl<T: AstDeref<Target: HasNodeId>> HasNodeId for T {}
 (source_file
   (impl_item
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (generic_type
@@ -1865,9 +1990,11 @@ where
       (associated_type
         (type_identifier)
         (type_parameters
-          (lifetime
-            (identifier))
-          (type_identifier))
+          (lifetime_parameter
+            (lifetime
+              (identifier)))
+          (type_parameter
+            (type_identifier)))
         (trait_bounds
           (generic_type
             (type_identifier)
@@ -1884,9 +2011,11 @@ where
       (type_item
         (type_identifier)
         (type_parameters
-          (lifetime
-            (identifier))
-          (type_identifier))
+          (lifetime_parameter
+            (lifetime
+              (identifier)))
+          (type_parameter
+            (type_identifier)))
         (generic_type
           (type_identifier)
           (type_arguments
@@ -1896,7 +2025,7 @@ where
   (function_item
     (identifier)
     (type_parameters
-      (constrained_type_parameter
+      (type_parameter
         (type_identifier)
         (trait_bounds
           (generic_type
@@ -1914,7 +2043,8 @@ where
   (function_item
     (identifier)
     (type_parameters
-      (type_identifier))
+      (type_parameter
+        (type_identifier)))
     (parameters)
     (where_clause
       (where_predicate
@@ -1949,8 +2079,9 @@ type FnObject<'b> = dyn for<'a> FnLike<&'a isize, &'a isize> + 'b;
     (trait_bounds
       (higher_ranked_trait_bound
         (type_parameters
-          (lifetime
-            (identifier)))
+          (lifetime_parameter
+            (lifetime
+              (identifier))))
         (generic_type
           (type_identifier)
           (type_arguments
@@ -1962,14 +2093,16 @@ type FnObject<'b> = dyn for<'a> FnLike<&'a isize, &'a isize> + 'b;
   (type_item
     (type_identifier)
     (type_parameters
-      (lifetime
-        (identifier)))
+      (lifetime_parameter
+        (lifetime
+          (identifier))))
     (bounded_type
       (dynamic_type
         (higher_ranked_trait_bound
           (type_parameters
-            (lifetime
-              (identifier)))
+            (lifetime_parameter
+              (lifetime
+                (identifier))))
           (generic_type
             (type_identifier)
             (type_arguments
@@ -2101,7 +2234,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
   (function_item
     name: (identifier)
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     parameters: (parameters
       (self_parameter
         (self))
@@ -2126,10 +2260,11 @@ impl<A> Default for B<A> where *mut A: C + D {}
         (boolean_literal))))
   (impl_item
     type_parameters: (type_parameters
-      (lifetime
-        (identifier))
-      (constrained_type_parameter
-        left: (type_identifier)
+      (lifetime_parameter
+        name: (lifetime
+          (identifier)))
+      (type_parameter
+        name: (type_identifier)
         bounds: (trait_bounds
           (lifetime
             (identifier))
@@ -2150,7 +2285,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
     body: (declaration_list))
   (impl_item
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     trait: (type_identifier)
     type: (generic_type
       type: (type_identifier)
@@ -2178,9 +2314,11 @@ impl<A> Default for B<A> where *mut A: C + D {}
     body: (declaration_list))
   (impl_item
     type_parameters: (type_parameters
-      (lifetime
-        (identifier))
-      (type_identifier))
+      (lifetime_parameter
+        name: (lifetime
+          (identifier)))
+      (type_parameter
+        name: (type_identifier)))
     type: (type_identifier)
     (where_clause
       (where_predicate
@@ -2193,7 +2331,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
     body: (declaration_list))
   (impl_item
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     trait: (type_identifier)
     type: (generic_type
       type: (type_identifier)
@@ -2210,7 +2349,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
     body: (declaration_list))
   (impl_item
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     trait: (type_identifier)
     type: (generic_type
       type: (type_identifier)
@@ -2220,8 +2360,9 @@ impl<A> Default for B<A> where *mut A: C + D {}
       (where_predicate
         left: (higher_ranked_trait_bound
           type_parameters: (type_parameters
-            (lifetime
-              (identifier)))
+            (lifetime_parameter
+              name: (lifetime
+                (identifier))))
           type: (generic_type
             type: (type_identifier)
             type_arguments: (type_arguments
@@ -2237,7 +2378,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
     (visibility_modifier)
     name: (type_identifier)
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     (where_clause
       (where_predicate
         left: (type_identifier)
@@ -2247,7 +2389,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
   (function_item
     name: (identifier)
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     parameters: (parameters)
     (where_clause
       (where_predicate
@@ -2268,7 +2411,8 @@ impl<A> Default for B<A> where *mut A: C + D {}
     body: (block))
   (impl_item
     type_parameters: (type_parameters
-      (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
     trait: (type_identifier)
     type: (generic_type
       type: (type_identifier)
@@ -2397,7 +2541,8 @@ where
   (function_item
     (identifier)
     (type_parameters
-      (type_identifier))
+      (type_parameter
+        (type_identifier)))
     (parameters
       (parameter
         (identifier)
@@ -2413,3 +2558,29 @@ where
             (type_arguments
               (type_identifier))))))
     (block)))
+
+================================================================================
+Const generics with default
+================================================================================
+
+pub struct Loaf<T: Sized, const N: usize = 1>([T; N]);
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_item
+    (visibility_modifier)
+    (type_identifier)
+    (type_parameters
+      (type_parameter
+        (type_identifier)
+        (trait_bounds
+          (type_identifier)))
+      (const_parameter
+        (identifier)
+        (primitive_type)
+        (integer_literal)))
+    (ordered_field_declaration_list
+      (array_type
+        (type_identifier)
+        (identifier)))))
