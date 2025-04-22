@@ -209,8 +209,8 @@ module.exports = grammar({
     ),
 
     fragment_specifier: _ => choice(
-      'block', 'expr', 'ident', 'item', 'lifetime', 'literal', 'meta', 'pat',
-      'path', 'stmt', 'tt', 'ty', 'vis',
+      'block', 'expr', 'expr_2021', 'ident', 'item', 'lifetime', 'literal', 'meta', 'pat',
+      'pat_param', 'path', 'stmt', 'tt', 'ty', 'vis',
     ),
 
     _tokens: $ => choice(
@@ -912,6 +912,7 @@ module.exports = grammar({
         $.scoped_type_identifier,
         $.generic_type,
         $.function_type,
+        $.tuple_type,
       )),
     ),
 
@@ -1291,6 +1292,7 @@ module.exports = grammar({
 
     closure_expression: $ => prec(PREC.closure, seq(
       optional('static'),
+      optional('async'),
       optional('move'),
       field('parameters', $.closure_parameters),
       choice(
